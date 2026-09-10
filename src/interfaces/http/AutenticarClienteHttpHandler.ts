@@ -1,23 +1,25 @@
-import { HttpHandler, HttpRequest, HttpResponseInit } from '@azure/functions';
+import { HttpHandler, HttpRequest, HttpResponseInit } from "@azure/functions";
 
 import {
   AutenticarClientePorCpf,
   ClienteNaoAutorizadoError,
-} from '../../application/AutenticarClientePorCpf';
+} from "../../application/AutenticarClientePorCpf";
 
 const respostaJson = (status: number, corpo: unknown): HttpResponseInit => ({
   status,
   jsonBody: corpo,
   headers: {
-    'cache-control': 'no-store',
-    'content-type': 'application/json; charset=utf-8',
+    "cache-control": "no-store",
+    "content-type": "application/json; charset=utf-8",
   },
 });
 
-const lerCorpo = async (request: HttpRequest): Promise<{ cpf: unknown } | null> => {
+const lerCorpo = async (
+  request: HttpRequest,
+): Promise<{ cpf: unknown } | null> => {
   try {
     const corpo = (await request.json()) as unknown;
-    if (typeof corpo !== 'object' || corpo === null || Array.isArray(corpo)) {
+    if (typeof corpo !== "object" || corpo === null || Array.isArray(corpo)) {
       return null;
     }
 
@@ -33,7 +35,7 @@ export const criarAutenticarClienteHttpHandler = (
   return async (request) => {
     const corpo = await lerCorpo(request);
     if (!corpo) {
-      return respostaJson(400, { mensagem: 'Requisição inválida' });
+      return respostaJson(400, { mensagem: "Requisição inválida" });
     }
 
     try {
@@ -41,10 +43,10 @@ export const criarAutenticarClienteHttpHandler = (
       return respostaJson(200, resultado);
     } catch (error) {
       if (error instanceof ClienteNaoAutorizadoError) {
-        return respostaJson(401, { mensagem: 'CPF não autorizado' });
+        return respostaJson(401, { mensagem: "CPF não autorizado" });
       }
 
-      return respostaJson(500, { mensagem: 'Não foi possível autenticar' });
+      return respostaJson(500, { mensagem: "Não foi possível autenticar" });
     }
   };
 };

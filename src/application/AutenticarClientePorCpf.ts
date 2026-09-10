@@ -1,10 +1,10 @@
-import { Cpf } from '../domain/Cpf';
-import { ClienteAuthRepository } from './ports/ClienteAuthRepository';
-import { TokenService } from './ports/TokenService';
+import { Cpf } from "../domain/Cpf";
+import { ClienteAuthRepository } from "./ports/ClienteAuthRepository";
+import { TokenService } from "./ports/TokenService";
 
 export class ClienteNaoAutorizadoError extends Error {
   constructor() {
-    super('CPF não autorizado');
+    super("CPF não autorizado");
   }
 }
 
@@ -35,7 +35,7 @@ export class AutenticarClientePorCpf {
       accessToken: this.tokens.assinar({
         sub: cliente.id,
         cpf: cpf.valor,
-        role: 'cliente',
+        role: "cliente",
       }),
     };
   }

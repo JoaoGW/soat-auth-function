@@ -4,9 +4,15 @@ export interface AuthConfig {
   jwtIssuer: string;
   jwtAudience: string;
   jwtExpiresIn: string;
+  observabilityEnabled?: boolean;
+  newRelicLicenseKey?: string;
+  serviceVersion?: string;
 }
 
-const valorObrigatorio = (environment: NodeJS.ProcessEnv, nome: string): string => {
+const valorObrigatorio = (
+  environment: NodeJS.ProcessEnv,
+  nome: string,
+): string => {
   const valor = environment[nome]?.trim();
   if (!valor) throw new Error(`Variável obrigatória ausente: ${nome}`);
   return valor;
@@ -15,28 +21,39 @@ const valorObrigatorio = (environment: NodeJS.ProcessEnv, nome: string): string 
 export const carregarAuthConfig = (
   environment: NodeJS.ProcessEnv = process.env,
 ): AuthConfig => {
-  const databaseUrl = valorObrigatorio(environment, 'DATABASE_URL');
+  const databaseUrl = valorObrigatorio(environment, "DATABASE_URL");
   const url = new URL(databaseUrl);
-  const sslmode = url.searchParams.get('sslmode');
-  if (!['require', 'verify-ca', 'verify-full'].includes(sslmode ?? '')) {
-    throw new Error('DATABASE_URL deve exigir TLS');
+  const sslmode = url.searchParams.get("sslmode");
+  if (!["require", "verify-ca", "verify-full"].includes(sslmode ?? "")) {
+    throw new Error("DATABASE_URL deve exigir TLS");
   }
 
-  const jwtSecret = valorObrigatorio(environment, 'JWT_CLIENT_SECRET');
-  if (Buffer.byteLength(jwtSecret, 'utf8') < 32) {
-    throw new Error('JWT_CLIENT_SECRET deve possuir ao menos 32 bytes');
+  const jwtSecret = valorObrigatorio(environment, "JWT_CLIENT_SECRET");
+  if (Buffer.byteLength(jwtSecret, "utf8") < 32) {
+    throw new Error("JWT_CLIENT_SECRET deve possuir ao menos 32 bytes");
   }
 
-  const jwtExpiresIn = environment.JWT_CLIENT_EXPIRES_IN?.trim() || '15m';
+  const jwtExpiresIn = environment.JWT_CLIENT_EXPIRES_IN?.trim() || "15m";
   if (!/^([1-9]\d{0,3})(s|m|h)$/.test(jwtExpiresIn)) {
-    throw new Error('JWT_CLIENT_EXPIRES_IN possui formato inválido');
+    throw new Error("JWT_CLIENT_EXPIRES_IN possui formato inválido");
+  }
+
+  const observabilityEnabled = environment.OBSERVABILITY_ENABLED === "true";
+  const newRelicLicenseKey = environment.NEW_RELIC_LICENSE_KEY?.trim();
+  if (observabilityEnabled && !newRelicLicenseKey) {
+    throw new Error(
+      "NEW_RELIC_LICENSE_KEY é obrigatória quando OBSERVABILITY_ENABLED=true",
+    );
   }
 
   return {
     databaseUrl,
     jwtSecret,
-    jwtIssuer: environment.JWT_CLIENT_ISSUER?.trim() || 'soat-auth-function',
-    jwtAudience: environment.JWT_CLIENT_AUDIENCE?.trim() || 'soat-api',
+    jwtIssuer: environment.JWT_CLIENT_ISSUER?.trim() || "soat-auth-function",
+    jwtAudience: environment.JWT_CLIENT_AUDIENCE?.trim() || "soat-api",
     jwtExpiresIn,
+    observabilityEnabled,
+    newRelicLicenseKey,
+    serviceVersion: environment.OTEL_SERVICE_VERSION?.trim() || "local",
   };
 };

@@ -65,13 +65,18 @@ resource "azurerm_function_app_flex_consumption" "this" {
   }
 
   app_settings = {
-    DATABASE_URL             = "@Microsoft.KeyVault(SecretUri=${var.database_url_secret_uri})"
-    JWT_CLIENT_SECRET        = "@Microsoft.KeyVault(SecretUri=${azurerm_key_vault_secret.jwt_client_secret.versionless_id})"
-    JWT_CLIENT_ISSUER        = "soat-auth-function"
-    JWT_CLIENT_AUDIENCE      = "soat-api"
-    JWT_CLIENT_EXPIRES_IN    = "15m"
-    NODE_ENV                 = var.environment
-    FUNCTIONS_WORKER_RUNTIME = "node"
+    DATABASE_URL                = "@Microsoft.KeyVault(SecretUri=${var.database_url_secret_uri})"
+    JWT_CLIENT_SECRET           = "@Microsoft.KeyVault(SecretUri=${azurerm_key_vault_secret.jwt_client_secret.versionless_id})"
+    JWT_CLIENT_ISSUER           = "soat-auth-function"
+    JWT_CLIENT_AUDIENCE         = "soat-api"
+    JWT_CLIENT_EXPIRES_IN       = "15m"
+    NODE_ENV                    = var.environment
+    OBSERVABILITY_ENABLED       = "true"
+    OTEL_SERVICE_NAME           = "soat-auth-function"
+    OTEL_SERVICE_VERSION        = var.application_version
+    OTEL_EXPORTER_OTLP_ENDPOINT = "https://otlp.nr-data.net:4318"
+    NEW_RELIC_LICENSE_KEY       = "@Microsoft.KeyVault(SecretUri=${var.key_vault_uri}secrets/new-relic-license-key/)"
+    FUNCTIONS_WORKER_RUNTIME    = "node"
   }
 
   site_config {
