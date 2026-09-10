@@ -1,0 +1,78 @@
+name: Deploy Azure Function
+
+on:
+  push:
+    branches: [development, main]
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  deploy_hml:
+    if: github.ref_name == 'development' && vars.TF_APPLY_ENABLED == 'true' && vars.AZURE_CLIENT_ID != ''
+    runs-on: ubuntu-latest
+    environment: hml
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: '1.9.8'
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      - run: npm ci && npm run lint && npm run build && npm run test
+      - name: Aplicar infraestrutura de homologação
+        env:
+          TF_VAR_resource_name_suffix: ${{ vars.RESOURCE_NAME_SUFFIX }}
+          TF_VAR_state_resource_group_name: ${{ vars.TF_STATE_RESOURCE_GROUP }}
+          TF_VAR_state_storage_account_name: ${{ vars.TF_STATE_STORAGE_ACCOUNT }}
+          TF_VAR_aks_state_container_name: ${{ vars.TF_STATE_AKS_CONTAINER }}
+        run: |
+          terraform -chdir=infra/environments/hml init -input=false -backend-config="resource_group_name=${{ vars.TF_STATE_RESOURCE_GROUP }}" -backend-config="storage_account_name=${{ vars.TF_STATE_STORAGE_ACCOUNT }}" -backend-config="container_name=${{ vars.TF_STATE_AUTH_CONTAINER }}" -backend-config="key=hml.tfstate" -backend-config="use_azuread_auth=true"
+          terraform -chdir=infra/environments/hml apply -input=false -auto-approve
+      - uses: Azure/functions-action@v1
+        with:
+          app-name: func-soat-auth-hml-${{ vars.RESOURCE_NAME_SUFFIX }}
+          package: .
+          remote-build: true
+
+  deploy_prod:
+    if: github.ref_name == 'main' && vars.TF_APPLY_ENABLED == 'true' && vars.AZURE_CLIENT_ID != ''
+    runs-on: ubuntu-latest
+    environment: prod
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: '1.9.8'
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      - run: npm ci && npm run lint && npm run build && npm run test
+      - name: Aplicar infraestrutura de produção
+        env:
+          TF_VAR_resource_name_suffix: ${{ vars.RESOURCE_NAME_SUFFIX }}
+          TF_VAR_state_resource_group_name: ${{ vars.TF_STATE_RESOURCE_GROUP }}
+          TF_VAR_state_storage_account_name: ${{ vars.TF_STATE_STORAGE_ACCOUNT }}
+          TF_VAR_aks_state_container_name: ${{ vars.TF_STATE_AKS_CONTAINER }}
+        run: |
+          terraform -chdir=infra/environments/prod init -input=false -backend-config="resource_group_name=${{ vars.TF_STATE_RESOURCE_GROUP }}" -backend-config="storage_account_name=${{ vars.TF_STATE_STORAGE_ACCOUNT }}" -backend-config="container_name=${{ vars.TF_STATE_AUTH_CONTAINER }}" -backend-config="key=prod.tfstate" -backend-config="use_azuread_auth=true"
+          terraform -chdir=infra/environments/prod apply -input=false -auto-approve
+      - uses: Azure/functions-action@v1
+        with:
+          app-name: func-soat-auth-prod-${{ vars.RESOURCE_NAME_SUFFIX }}
+          package: .
+          remote-build: true
