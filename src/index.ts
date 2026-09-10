@@ -1,5 +1,5 @@
 import "./infrastructure/observability/Instrumentation";
-import { app } from "@azure/functions";
+import { app, HttpRequest, HttpResponseInit } from "@azure/functions";
 import { Pool } from "pg";
 import { randomUUID } from "node:crypto";
 
@@ -53,14 +53,11 @@ app.http("autenticar-cliente-por-cpf", {
   },
 });
 
-app.http("health", {
-  methods: ["GET"],
-  authLevel: "anonymous",
-  route: "health",
-  handler: async (request) => {
-    const correlationId =
-      request.headers.get("x-correlation-id") || randomUUID();
-    return observability.execute("/health", correlationId, async () => ({
+export const healthHandler = async (
+  request: HttpRequest,
+): Promise<HttpResponseInit> => {
+  const correlationId = request.headers.get("x-correlation-id") || randomUUID();
+  return observability.execute("/health", correlationId, async () => ({
       status: 200,
       jsonBody: {
         status: "ok",
@@ -72,5 +69,11 @@ app.http("health", {
         "X-Correlation-ID": correlationId,
       },
     }));
-  },
+};
+
+app.http("health", {
+  methods: ["GET"],
+  authLevel: "anonymous",
+  route: "health",
+  handler: healthHandler,
 });
