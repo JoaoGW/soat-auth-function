@@ -1,0 +1,4 @@
+resource_name_suffix      = "joaogw260909"
+state_resource_group_name = "rg-soat-platform"
+state_storage_account_name = "soatsttfstate260909"
+aks_state_container_name  = "tfstate-aks-infra"

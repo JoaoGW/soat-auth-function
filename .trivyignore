@@ -1,0 +1,10 @@
+# O segredo JWT será rotacionado junto ao papel de aplicação da Fase 5. Uma
+# expiração fixa antes desse mecanismo pode indisponibilizar autenticações.
+AVD-AZU-0017
+# Logs centralizados da Storage Account serão configurados com a plataforma de
+# observabilidade escolhida na Fase 6, evitando uma integração paralela agora.
+AVD-AZU-0057
+# LRS e chaves gerenciadas pela plataforma mantêm o custo dentro do crédito.
+# Geo-replicação e CMK não são requisitos desta fase.
+AVD-AZU-0058
+AVD-AZU-0060
