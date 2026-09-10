@@ -14,8 +14,15 @@ O `host.json` prepara o runtime Azure Functions. As futuras variáveis de banco,
 JWT e observabilidade serão documentadas quando a implementação funcional
 existir. O repositório não possui Dockerfile porque a execução será serverless.
 
+## Variáveis e arquitetura
+
+Não há variáveis de ambiente nesta fase: a Function ainda não possui rota nem
+integrações externas. As futuras variáveis serão fornecidas pelo ambiente de
+deploy, nunca versionadas. Consulte o
+[diagrama central](https://github.com/JoaoGW/soat-api/blob/main/docs/architecture/README.md#mapa-de-responsabilidades-dos-repositórios).
+
 ## CI
 
-O pipeline executa instalação, lint, build e testes em push e pull request para
-`main` e `development`.
-
+O [workflow CI](https://github.com/JoaoGW/soat-auth-function/actions/workflows/ci.yml)
+executa instalação, lint, build e testes em push e pull request para `main` e
+`development`.
