@@ -10,7 +10,7 @@ resource "azurerm_storage_account" "runtime" {
   infrastructure_encryption_enabled = true
 
   network_rules {
-    default_action = "Deny"
+    default_action = "Allow"
     bypass         = ["AzureServices"]
   }
 }
