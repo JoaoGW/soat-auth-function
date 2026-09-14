@@ -49,6 +49,7 @@ jobs:
           app-name: func-soat-auth-hml-${{ vars.RESOURCE_NAME_SUFFIX }}
           package: .
           remote-build: true
+          respect-funcignore: true
 
   deploy_prod:
     if: github.ref_name == 'main' && vars.TF_APPLY_PROD_ENABLED == 'true'
@@ -90,3 +91,4 @@ jobs:
           app-name: func-soat-auth-prod-${{ vars.RESOURCE_NAME_SUFFIX }}
           package: .
           remote-build: true
+          respect-funcignore: true
