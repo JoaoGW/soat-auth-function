@@ -49,8 +49,7 @@ resource "azurerm_function_app_flex_consumption" "this" {
 
   storage_container_type                         = "blobContainer"
   storage_container_endpoint                     = "${azurerm_storage_account.runtime.primary_blob_endpoint}${azurerm_storage_container.package.name}"
-  storage_authentication_type                    = "StorageAccountConnectionString"
-  storage_access_key                             = azurerm_storage_account.runtime.primary_access_key
+  storage_authentication_type                    = "SystemAssignedIdentity"
   runtime_name                                   = "node"
   runtime_version                                = "20"
   maximum_instance_count                         = 10
@@ -65,17 +64,19 @@ resource "azurerm_function_app_flex_consumption" "this" {
   }
 
   app_settings = {
-    DATABASE_URL                = "@Microsoft.KeyVault(SecretUri=${var.database_url_secret_uri})"
-    JWT_CLIENT_SECRET           = "@Microsoft.KeyVault(SecretUri=${azurerm_key_vault_secret.jwt_client_secret.versionless_id})"
-    JWT_CLIENT_ISSUER           = "soat-auth-function"
-    JWT_CLIENT_AUDIENCE         = "soat-api"
-    JWT_CLIENT_EXPIRES_IN       = "15m"
-    NODE_ENV                    = var.environment
-    OBSERVABILITY_ENABLED       = "true"
-    OTEL_SERVICE_NAME           = "soat-auth-function"
-    OTEL_SERVICE_VERSION        = var.application_version
-    OTEL_EXPORTER_OTLP_ENDPOINT = "https://otlp.nr-data.net:4318"
-    NEW_RELIC_LICENSE_KEY       = "@Microsoft.KeyVault(SecretUri=${var.key_vault_uri}secrets/new-relic-license-key/)"
+    AzureWebJobsStorage              = ""
+    AzureWebJobsStorage__accountName = azurerm_storage_account.runtime.name
+    DATABASE_URL                     = "@Microsoft.KeyVault(SecretUri=${var.database_url_secret_uri})"
+    JWT_CLIENT_SECRET                = "@Microsoft.KeyVault(SecretUri=${azurerm_key_vault_secret.jwt_client_secret.versionless_id})"
+    JWT_CLIENT_ISSUER                = "soat-auth-function"
+    JWT_CLIENT_AUDIENCE              = "soat-api"
+    JWT_CLIENT_EXPIRES_IN            = "15m"
+    NODE_ENV                         = var.environment
+    OBSERVABILITY_ENABLED            = "true"
+    OTEL_SERVICE_NAME                = "soat-auth-function"
+    OTEL_SERVICE_VERSION             = var.application_version
+    OTEL_EXPORTER_OTLP_ENDPOINT      = "https://otlp.nr-data.net:4318"
+    NEW_RELIC_LICENSE_KEY            = "@Microsoft.KeyVault(SecretUri=${var.key_vault_uri}secrets/new-relic-license-key/)"
   }
 
   site_config {
@@ -88,5 +89,11 @@ resource "azurerm_function_app_flex_consumption" "this" {
 resource "azurerm_role_assignment" "function_key_vault" {
   scope                = var.key_vault_id
   role_definition_name = "Key Vault Secrets User"
+  principal_id         = azurerm_function_app_flex_consumption.this.identity[0].principal_id
+}
+
+resource "azurerm_role_assignment" "function_storage" {
+  scope                = azurerm_storage_account.runtime.id
+  role_definition_name = "Storage Blob Data Owner"
   principal_id         = azurerm_function_app_flex_consumption.this.identity[0].principal_id
 }
