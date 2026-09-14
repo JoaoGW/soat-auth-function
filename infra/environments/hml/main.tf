@@ -18,6 +18,11 @@ data "terraform_remote_state" "foundation" {
   }
 }
 
+data "azurerm_user_assigned_identity" "github_deployer" {
+  name                = "uami-soat-${var.resource_name_suffix}-auth-hml"
+  resource_group_name = data.terraform_remote_state.foundation.outputs.platform_resource_group_name
+}
+
 module "function" {
   source = "../../modules/function"
 
@@ -30,4 +35,10 @@ module "function" {
   function_subnet_id      = data.terraform_remote_state.foundation.outputs.function_subnet_id
   database_url_secret_uri = "${data.terraform_remote_state.foundation.outputs.key_vault_uri}secrets/database-url-hml/"
   application_version     = var.application_version
+}
+
+resource "azurerm_role_assignment" "github_deployer_storage_access" {
+  scope                = module.function.storage_account_id
+  role_definition_name = "User Access Administrator"
+  principal_id         = data.azurerm_user_assigned_identity.github_deployer.principal_id
 }
