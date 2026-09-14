@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   deploy_hml:
-    if: github.ref_name == 'development' && vars.TF_APPLY_ENABLED == 'true' && vars.AZURE_CLIENT_ID != ''
+    if: github.ref_name == 'development' && vars.TF_APPLY_HML_ENABLED == 'true' && vars.AZURE_CLIENT_ID != ''
     runs-on: ubuntu-latest
     environment: hml
     env:
@@ -51,7 +51,7 @@ jobs:
           remote-build: true
 
   deploy_prod:
-    if: github.ref_name == 'main' && vars.TF_APPLY_ENABLED == 'true' && vars.AZURE_CLIENT_ID != ''
+    if: github.ref_name == 'main' && vars.TF_APPLY_PROD_ENABLED == 'true' && vars.AZURE_CLIENT_ID != ''
     runs-on: ubuntu-latest
     environment: prod
     env:
