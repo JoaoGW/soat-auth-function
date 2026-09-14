@@ -76,7 +76,6 @@ resource "azurerm_function_app_flex_consumption" "this" {
     OTEL_SERVICE_VERSION        = var.application_version
     OTEL_EXPORTER_OTLP_ENDPOINT = "https://otlp.nr-data.net:4318"
     NEW_RELIC_LICENSE_KEY       = "@Microsoft.KeyVault(SecretUri=${var.key_vault_uri}secrets/new-relic-license-key/)"
-    FUNCTIONS_WORKER_RUNTIME    = "node"
   }
 
   site_config {
