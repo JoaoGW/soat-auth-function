@@ -6,8 +6,8 @@ import { OTLPMetricExporter } from "@opentelemetry/exporter-metrics-otlp-proto";
 import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-proto";
 import { resourceFromAttributes } from "@opentelemetry/resources";
 import {
-  BatchLogRecordProcessor,
   LoggerProvider,
+  SimpleLogRecordProcessor,
 } from "@opentelemetry/sdk-logs";
 import { PeriodicExportingMetricReader } from "@opentelemetry/sdk-metrics";
 import { NodeSDK } from "@opentelemetry/sdk-node";
@@ -17,6 +17,7 @@ const enabled = process.env.OBSERVABILITY_ENABLED === "true";
 const service = process.env.OTEL_SERVICE_NAME ?? "soat-auth-function";
 const version = process.env.OTEL_SERVICE_VERSION ?? "local";
 const environment = process.env.NODE_ENV ?? "development";
+let flushTelemetry = async (): Promise<void> => undefined;
 
 if (enabled) {
   const licenseKey = process.env.NEW_RELIC_LICENSE_KEY;
@@ -36,18 +37,18 @@ if (enabled) {
     url: `${endpoint}/v1/traces`,
     headers,
   });
+  const spanProcessor = new SimpleSpanProcessor(traceExporter);
+  const metricReader = new PeriodicExportingMetricReader({
+    exporter: new OTLPMetricExporter({
+      url: `${endpoint}/v1/metrics`,
+      headers,
+    }),
+    exportIntervalMillis: 30_000,
+  });
   new NodeSDK({
     resource,
-    // A Function pode ficar ociosa logo após responder. A exportação imediata
-    // evita que spans permaneçam no lote quando a instância for suspensa.
-    spanProcessors: [new SimpleSpanProcessor(traceExporter)],
-    metricReader: new PeriodicExportingMetricReader({
-      exporter: new OTLPMetricExporter({
-        url: `${endpoint}/v1/metrics`,
-        headers,
-      }),
-      exportIntervalMillis: 30_000,
-    }),
+    spanProcessors: [spanProcessor],
+    metricReader,
     instrumentations: [
       getNodeAutoInstrumentations({
         "@opentelemetry/instrumentation-pg": {
@@ -68,12 +69,19 @@ if (enabled) {
   const loggerProvider = new LoggerProvider({
     resource,
     processors: [
-      new BatchLogRecordProcessor({
+      new SimpleLogRecordProcessor({
         exporter: new OTLPLogExporter({ url: `${endpoint}/v1/logs`, headers }),
       }),
     ],
   });
   logs.setGlobalLoggerProvider(loggerProvider);
+  flushTelemetry = async (): Promise<void> => {
+    await Promise.all([
+      spanProcessor.forceFlush(),
+      metricReader.forceFlush(),
+      loggerProvider.forceFlush(),
+    ]);
+  };
 }
 
 const meter = metrics.getMeter("soat-auth-function");
@@ -118,6 +126,10 @@ export const observability = {
           throw error;
         } finally {
           span.end();
+          // Functions podem suspender logo após responder. Aguarda os
+          // exportadores, mas nunca transforma uma falha de telemetria em
+          // indisponibilidade da autenticação.
+          await flushTelemetry().catch(() => undefined);
         }
       });
   },
