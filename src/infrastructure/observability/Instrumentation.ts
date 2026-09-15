@@ -11,6 +11,7 @@ import {
 } from "@opentelemetry/sdk-logs";
 import { PeriodicExportingMetricReader } from "@opentelemetry/sdk-metrics";
 import { NodeSDK } from "@opentelemetry/sdk-node";
+import { SimpleSpanProcessor } from "@opentelemetry/sdk-trace-base";
 
 const enabled = process.env.OBSERVABILITY_ENABLED === "true";
 const service = process.env.OTEL_SERVICE_NAME ?? "soat-auth-function";
@@ -31,12 +32,15 @@ if (enabled) {
     "service.version": version,
     "deployment.environment.name": environment,
   });
+  const traceExporter = new OTLPTraceExporter({
+    url: `${endpoint}/v1/traces`,
+    headers,
+  });
   new NodeSDK({
     resource,
-    traceExporter: new OTLPTraceExporter({
-      url: `${endpoint}/v1/traces`,
-      headers,
-    }),
+    // A Function pode ficar ociosa logo após responder. A exportação imediata
+    // evita que spans permaneçam no lote quando a instância for suspensa.
+    spanProcessors: [new SimpleSpanProcessor(traceExporter)],
     metricReader: new PeriodicExportingMetricReader({
       exporter: new OTLPMetricExporter({
         url: `${endpoint}/v1/metrics`,
