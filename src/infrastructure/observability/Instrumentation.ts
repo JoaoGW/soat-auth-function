@@ -1,4 +1,4 @@
-import { metrics, trace } from "@opentelemetry/api";
+import { metrics, SpanKind, SpanStatusCode, trace } from "@opentelemetry/api";
 import { logs, SeverityNumber } from "@opentelemetry/api-logs";
 import { getNodeAutoInstrumentations } from "@opentelemetry/auto-instrumentations-node";
 import { OTLPLogExporter } from "@opentelemetry/exporter-logs-otlp-proto";
@@ -97,41 +97,57 @@ export const observability = {
     route: string,
     correlationId: string,
     operation: () => Promise<T>,
+    method = "GET",
   ): Promise<T> {
     return trace
       .getTracer("soat-auth-function")
-      .startActiveSpan(route, async (span) => {
-        const start = performance.now();
-        span.setAttribute("soat.correlation_id", correlationId);
-        try {
-          const result = await operation();
-          const status =
-            typeof result === "object" && result !== null && "status" in result
-              ? Number(result.status)
-              : 200;
-          this.recordRequest(
-            route,
-            status,
-            Math.round(performance.now() - start),
-            correlationId,
-          );
-          return result;
-        } catch (error) {
-          this.recordRequest(
-            route,
-            500,
-            Math.round(performance.now() - start),
-            correlationId,
-          );
-          throw error;
-        } finally {
-          span.end();
-          // Functions podem suspender logo após responder. Aguarda os
-          // exportadores, mas nunca transforma uma falha de telemetria em
-          // indisponibilidade da autenticação.
-          await flushTelemetry().catch(() => undefined);
-        }
-      });
+      .startActiveSpan(
+        route,
+        {
+          kind: SpanKind.SERVER,
+          attributes: {
+            "http.request.method": method,
+            "url.path": route,
+          },
+        },
+        async (span) => {
+          const start = performance.now();
+          span.setAttribute("soat.correlation_id", correlationId);
+          try {
+            const result = await operation();
+            const status =
+              typeof result === "object" && result !== null && "status" in result
+                ? Number(result.status)
+                : 200;
+            this.recordRequest(
+              route,
+              status,
+              Math.round(performance.now() - start),
+              correlationId,
+            );
+            span.setAttribute("http.response.status_code", status);
+            span.setStatus({
+              code: status >= 500 ? SpanStatusCode.ERROR : SpanStatusCode.OK,
+            });
+            return result;
+          } catch (error) {
+            this.recordRequest(
+              route,
+              500,
+              Math.round(performance.now() - start),
+              correlationId,
+            );
+            span.setStatus({ code: SpanStatusCode.ERROR });
+            throw error;
+          } finally {
+            span.end();
+            // Functions podem suspender logo após responder. Aguarda os
+            // exportadores, mas nunca transforma uma falha de telemetria em
+            // indisponibilidade da autenticação.
+            await flushTelemetry().catch(() => undefined);
+          }
+        },
+      );
   },
   recordAttempt(outcome: "sucesso" | "negada" | "erro"): void {
     attempts.add(1, { resultado: outcome });
