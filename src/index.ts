@@ -41,6 +41,7 @@ app.http("autenticar-cliente-por-cpf", {
         Promise.resolve(
           criarAutenticarClienteHttpHandler(useCase)(request, context),
         ),
+      "POST",
     );
     const status = response.status ?? 200;
     observability.recordAttempt(
