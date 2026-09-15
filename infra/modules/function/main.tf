@@ -75,7 +75,7 @@ resource "azurerm_function_app_flex_consumption" "this" {
     OBSERVABILITY_ENABLED            = "true"
     OTEL_SERVICE_NAME                = "soat-auth-function"
     OTEL_SERVICE_VERSION             = var.application_version
-    OTEL_EXPORTER_OTLP_ENDPOINT      = "https://otlp.nr-data.net:4318"
+    OTEL_EXPORTER_OTLP_ENDPOINT      = "https://otlp.nr-data.net"
     NEW_RELIC_LICENSE_KEY            = "@Microsoft.KeyVault(SecretUri=${var.key_vault_uri}secrets/new-relic-license-key/)"
   }
 
