@@ -21,8 +21,10 @@ serverless.
 
 ## Variáveis e arquitetura
 
-As variáveis `DATABASE_URL`, `JWT_CLIENT_SECRET` e `NEW_RELIC_LICENSE_KEY` são
-referências ao Key Vault; `JWT_CLIENT_ISSUER`, `JWT_CLIENT_AUDIENCE` e
+As variáveis `INTERNAL_CLIENT_LOOKUP_TOKEN`, `JWT_CLIENT_SECRET` e `NEW_RELIC_LICENSE_KEY` são
+referências ao Key Vault. `OS_INTERNAL_BASE_URL` aponta ao HTTPS do Kong, e o token
+de integração exclusivo (ao menos 32 bytes) deve ser provisionado com o mesmo valor
+na Function e no OS antes do deploy. `JWT_CLIENT_ISSUER`, `JWT_CLIENT_AUDIENCE` e
 `JWT_CLIENT_EXPIRES_IN` possuem valores seguros padrão. Nenhum segredo é
 versionado. A Function HML está implantada em Flex Consumption, integrada à
 rede privada e acessível pelo Kong na rota `/auth/cpf`; seu health check é

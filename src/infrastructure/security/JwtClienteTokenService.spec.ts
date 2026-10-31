@@ -5,7 +5,8 @@ import { JwtClienteTokenService } from "./JwtClienteTokenService";
 describe("JwtClienteTokenService", () => {
   it("emite JWT de cliente com issuer, audience e expiração", () => {
     const token = new JwtClienteTokenService({
-      databaseUrl: "postgresql://unused?sslmode=require",
+      osInternalBaseUrl: "https://os.example.test",
+      internalClientLookupToken: "token-exclusivo-com-mais-de-trinta-bytes",
       jwtSecret: "segredo-com-mais-de-trinta-e-dois-bytes",
       jwtIssuer: "soat-auth-function",
       jwtAudience: "soat-api",

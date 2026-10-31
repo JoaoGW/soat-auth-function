@@ -1,8 +1,9 @@
 # Segurança da Function
 
-A Function usa PostgreSQL privado por integração regional com a subnet dedicada
-e busca `DATABASE_URL` e `JWT_CLIENT_SECRET` por referências do Key Vault. Os
-segredos não são persistidos em GitHub, código, outputs ou logs.
+A Function consulta o OS por HTTPS, com token de integração exclusivo obtido
+do Key Vault, e não possui credencial de banco de dados. `JWT_CLIENT_SECRET`
+também é obtido do Key Vault. Os segredos não são persistidos em GitHub, código,
+outputs ou logs. A rota interna deve ser disponibilizada no Kong antes da troca.
 
 O storage de runtime permite apenas serviços Azure, bloqueia acesso público a
 containers, exige TLS 1.2 e usa dupla criptografia de infraestrutura. O acesso

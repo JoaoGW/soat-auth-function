@@ -152,9 +152,9 @@ export const observability = {
   recordAttempt(outcome: "sucesso" | "negada" | "erro"): void {
     attempts.add(1, { resultado: outcome });
   },
-  recordIntegrationError(): void {
-    integrationErrors.add(1, { integracao: "postgres" });
-    this.log("error", "falha de integração", { integracao: "postgres" });
+  recordIntegrationError(integracao: string): void {
+    integrationErrors.add(1, { integracao });
+    this.log("error", "falha de integração", { integracao });
   },
   recordRequest(
     route: string,

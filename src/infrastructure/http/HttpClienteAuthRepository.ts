@@ -1,0 +1,27 @@
+import { ClienteAuthRepository, ClienteAutenticavel } from "../../application/ports/ClienteAuthRepository";
+import { observability } from "../observability/Instrumentation";
+
+export class HttpClienteAuthRepository implements ClienteAuthRepository {
+  constructor(private readonly baseUrl: string, private readonly token: string, private readonly fetcher: typeof fetch = fetch) {}
+
+  async buscarPorCpf(cpf: string): Promise<ClienteAutenticavel | null> {
+    try {
+      const response = await this.fetcher(`${this.baseUrl.replace(/\/$/, "")}/internal/clientes/validar-cpf`, {
+        method: "POST", redirect: "error", signal: AbortSignal.timeout(5000),
+        headers: { authorization: `Bearer ${this.token}`, "content-type": "application/json" },
+        body: JSON.stringify({ cpf }),
+      });
+      if (!response.ok) throw new Error("Falha na consulta interna de cliente");
+      const result: unknown = await response.json();
+      if (typeof result !== "object" || result === null || !("cliente" in result)) throw new Error("Resposta interna inválida");
+      const cliente = result.cliente;
+      if (cliente === null) return null;
+      if (typeof cliente !== "object" || !("id" in cliente) || !("ativo" in cliente) ||
+          typeof cliente.id !== "string" || !cliente.id || typeof cliente.ativo !== "boolean") throw new Error("Resposta interna inválida");
+      return { id: cliente.id, ativo: cliente.ativo };
+    } catch (error) {
+      observability.recordIntegrationError("os-http");
+      throw error;
+    }
+  }
+}

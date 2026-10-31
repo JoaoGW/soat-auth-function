@@ -1,11 +1,10 @@
 import "./infrastructure/observability/Instrumentation";
 import { app, HttpRequest, HttpResponseInit } from "@azure/functions";
-import { Pool } from "pg";
 import { randomUUID } from "node:crypto";
 
 import { AutenticarClientePorCpf } from "./application/AutenticarClientePorCpf";
 import { carregarAuthConfig } from "./infrastructure/config/AuthConfig";
-import { PostgresClienteAuthRepository } from "./infrastructure/database/PostgresClienteAuthRepository";
+import { HttpClienteAuthRepository } from "./infrastructure/http/HttpClienteAuthRepository";
 import { JwtClienteTokenService } from "./infrastructure/security/JwtClienteTokenService";
 import { criarAutenticarClienteHttpHandler } from "./interfaces/http/AutenticarClienteHttpHandler";
 import {
@@ -16,14 +15,8 @@ import {
 export const functionAppName = "soat-auth-function";
 
 const config = carregarAuthConfig();
-const pool = new Pool({
-  connectionString: config.databaseUrl,
-  max: 2,
-  idleTimeoutMillis: 10_000,
-  connectionTimeoutMillis: 5_000,
-});
 const useCase = new AutenticarClientePorCpf(
-  new PostgresClienteAuthRepository(pool),
+  new HttpClienteAuthRepository(config.osInternalBaseUrl, config.internalClientLookupToken),
   new JwtClienteTokenService(config),
 );
 

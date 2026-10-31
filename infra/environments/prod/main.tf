@@ -21,13 +21,13 @@ data "terraform_remote_state" "foundation" {
 module "function" {
   source = "../../modules/function"
 
-  environment             = "prod"
-  location                = var.location
-  resource_group_name     = data.terraform_remote_state.foundation.outputs.auth_resource_group_name
-  name_suffix             = var.resource_name_suffix
-  key_vault_id            = data.terraform_remote_state.foundation.outputs.key_vault_id
-  key_vault_uri           = data.terraform_remote_state.foundation.outputs.key_vault_uri
-  function_subnet_id      = data.terraform_remote_state.foundation.outputs.function_subnet_id
-  database_url_secret_uri = "${data.terraform_remote_state.foundation.outputs.key_vault_uri}secrets/database-url-prod/"
-  application_version     = var.application_version
+  environment          = "prod"
+  location             = var.location
+  resource_group_name  = data.terraform_remote_state.foundation.outputs.auth_resource_group_name
+  name_suffix          = var.resource_name_suffix
+  key_vault_id         = data.terraform_remote_state.foundation.outputs.key_vault_id
+  key_vault_uri        = data.terraform_remote_state.foundation.outputs.key_vault_uri
+  function_subnet_id   = data.terraform_remote_state.foundation.outputs.function_subnet_id
+  os_internal_base_url = var.os_internal_base_url
+  application_version  = var.application_version
 }
