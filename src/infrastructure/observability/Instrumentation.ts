@@ -51,6 +51,9 @@ if (enabled) {
     metricReader,
     instrumentations: [
       getNodeAutoInstrumentations({
+        // A chamada ao OS cria span cliente e injeta W3C explicitamente.
+        // A instrumentação do undici acrescentaria os mesmos cabeçalhos novamente.
+        "@opentelemetry/instrumentation-undici": { enabled: false },
         "@opentelemetry/instrumentation-pg": {
           enhancedDatabaseReporting: false,
           requestHook: (span) =>
@@ -152,9 +155,9 @@ export const observability = {
   recordAttempt(outcome: "sucesso" | "negada" | "erro"): void {
     attempts.add(1, { resultado: outcome });
   },
-  recordIntegrationError(): void {
-    integrationErrors.add(1, { integracao: "postgres" });
-    this.log("error", "falha de integração", { integracao: "postgres" });
+  recordIntegrationError(integracao: string): void {
+    integrationErrors.add(1, { integracao });
+    this.log("error", "falha de integração", { integracao });
   },
   recordRequest(
     route: string,

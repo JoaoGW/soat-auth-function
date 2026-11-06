@@ -66,7 +66,8 @@ resource "azurerm_function_app_flex_consumption" "this" {
   app_settings = {
     AzureWebJobsStorage              = ""
     AzureWebJobsStorage__accountName = azurerm_storage_account.runtime.name
-    DATABASE_URL                     = "@Microsoft.KeyVault(SecretUri=${var.database_url_secret_uri})"
+    OS_INTERNAL_BASE_URL             = var.os_internal_base_url
+    INTERNAL_CLIENT_LOOKUP_TOKEN     = "@Microsoft.KeyVault(SecretUri=${var.key_vault_uri}secrets/internal-client-lookup-token-${var.environment}/)"
     JWT_CLIENT_SECRET                = "@Microsoft.KeyVault(SecretUri=${azurerm_key_vault_secret.jwt_client_secret.versionless_id})"
     JWT_CLIENT_ISSUER                = "soat-auth-function"
     JWT_CLIENT_AUDIENCE              = "soat-api"

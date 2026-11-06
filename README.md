@@ -1,13 +1,13 @@
 # soat-auth-function
 
 Azure Function TypeScript que emite JWT de cliente após autenticação por CPF.
-Ela valida os dois dígitos verificadores antes da consulta ao banco, procura um
+Ela valida os dois dígitos verificadores antes da consulta HTTPS ao OS, procura um
 cliente ativo e não informa se a falha decorre de CPF inválido, inexistente ou
 inativo.
 
 ## Stack e validação
 
-- Azure Functions v4, Node.js 20, TypeScript e PostgreSQL;
+- Azure Functions v4, Node.js 20, TypeScript e integração HTTPS com o OS;
 - JWT HS256 com `sub`, `cpf`, `role=cliente`, issuer, audience e expiração de
   15 minutos;
 - Jest, ESLint e Terraform 1.9.8;
@@ -19,14 +19,25 @@ versão. O `host.json` remove o prefixo padrão `/api` para que o Kong encaminhe
 a mesma rota. O repositório não possui Dockerfile porque a execução é
 serverless.
 
+O teste de trace chama o handler real da Function, exporta spans em memória e
+usa uma fronteira HTTP local simulada para o OS. Ele verifica a propagação W3C,
+o bearer de integração e a relação entre spans; não exercita o OS real, TLS,
+Azure Functions em nuvem ou exportação para New Relic.
+Na consulta ao OS, a Function cria um span cliente e injeta o contexto W3C
+uma única vez; a instrumentação automática do `undici` fica desativada para
+evitar cabeçalhos duplicados. O repositório OS contém um teste adicional com o
+controller real, HTTPS local e instrumentação de produção nos dois processos.
+
 ## Variáveis e arquitetura
 
-As variáveis `DATABASE_URL`, `JWT_CLIENT_SECRET` e `NEW_RELIC_LICENSE_KEY` são
-referências ao Key Vault; `JWT_CLIENT_ISSUER`, `JWT_CLIENT_AUDIENCE` e
+As variáveis `INTERNAL_CLIENT_LOOKUP_TOKEN`, `JWT_CLIENT_SECRET` e `NEW_RELIC_LICENSE_KEY` são
+referências ao Key Vault. `OS_INTERNAL_BASE_URL` aponta ao HTTPS do Kong, e o token
+de integração exclusivo (ao menos 32 bytes) deve ser provisionado com o mesmo valor
+na Function e no OS antes do deploy. `JWT_CLIENT_ISSUER`, `JWT_CLIENT_AUDIENCE` e
 `JWT_CLIENT_EXPIRES_IN` possuem valores seguros padrão. Nenhum segredo é
-versionado. A Function HML está implantada em Flex Consumption, integrada à
-rede privada e acessível pelo Kong na rota `/auth/cpf`; seu health check é
-`https://func-soat-auth-hml-joaogw260909.azurewebsites.net/health`.
+versionado. O ambiente HML foi implantado anteriormente em Flex Consumption e
+integrado ao Kong na rota `/auth/cpf`. Sua disponibilidade e configuração
+atuais precisam ser verificadas antes do aceite.
 Consulte o
 [diagrama central](https://github.com/JoaoGW/soat-api/blob/main/docs/architecture/README.md#mapa-de-responsabilidades-dos-repositórios).
 O Swagger e a coleção Postman pertencem à API central:

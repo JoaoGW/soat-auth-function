@@ -1,5 +1,6 @@
 export interface AuthConfig {
-  databaseUrl: string;
+  osInternalBaseUrl: string;
+  internalClientLookupToken: string;
   jwtSecret: string;
   jwtIssuer: string;
   jwtAudience: string;
@@ -21,17 +22,21 @@ const valorObrigatorio = (
 export const carregarAuthConfig = (
   environment: NodeJS.ProcessEnv = process.env,
 ): AuthConfig => {
-  const databaseUrl = valorObrigatorio(environment, "DATABASE_URL");
-  const url = new URL(databaseUrl);
-  const sslmode = url.searchParams.get("sslmode");
-  if (!["require", "verify-ca", "verify-full"].includes(sslmode ?? "")) {
-    throw new Error("DATABASE_URL deve exigir TLS");
+  const osInternalBaseUrl = valorObrigatorio(environment, "OS_INTERNAL_BASE_URL");
+  const url = new URL(osInternalBaseUrl);
+  if (url.protocol !== "https:" || url.username || url.password || url.search || url.hash) {
+    throw new Error("OS_INTERNAL_BASE_URL deve ser HTTPS sem credenciais ou parâmetros");
+  }
+  const internalClientLookupToken = valorObrigatorio(environment, "INTERNAL_CLIENT_LOOKUP_TOKEN");
+  if (Buffer.byteLength(internalClientLookupToken, "utf8") < 32) {
+    throw new Error("INTERNAL_CLIENT_LOOKUP_TOKEN deve possuir ao menos 32 bytes");
   }
 
   const jwtSecret = valorObrigatorio(environment, "JWT_CLIENT_SECRET");
   if (Buffer.byteLength(jwtSecret, "utf8") < 32) {
     throw new Error("JWT_CLIENT_SECRET deve possuir ao menos 32 bytes");
   }
+  if (internalClientLookupToken === jwtSecret) throw new Error("Token de integração deve ser exclusivo");
 
   const jwtExpiresIn = environment.JWT_CLIENT_EXPIRES_IN?.trim() || "15m";
   if (!/^([1-9]\d{0,3})(s|m|h)$/.test(jwtExpiresIn)) {
@@ -47,7 +52,8 @@ export const carregarAuthConfig = (
   }
 
   return {
-    databaseUrl,
+    osInternalBaseUrl,
+    internalClientLookupToken,
     jwtSecret,
     jwtIssuer: environment.JWT_CLIENT_ISSUER?.trim() || "soat-auth-function",
     jwtAudience: environment.JWT_CLIENT_AUDIENCE?.trim() || "soat-api",
