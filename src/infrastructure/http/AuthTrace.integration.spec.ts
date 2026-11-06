@@ -51,11 +51,13 @@ it("propaga o trace da Function pela fronteira HTTP simulada do OS", async () =>
     expect(received?.headers.tracestate).toBe("vendor=state");
     const spans = exporter.getFinishedSpans();
     const authSpan = spans.find(span => span.name === "/auth/cpf");
+    const clientSpan = spans.find(span => span.name === "consultar OS");
     const osSpan = spans.find(span => span.name === "consulta interna OS");
     expect(authSpan?.spanContext().traceId).toBe(traceId);
     expect(authSpan?.parentSpanContext?.spanId).toBe(incomingParent);
     expect(osSpan?.spanContext().traceId).toBe(traceId);
-    expect(osSpan?.parentSpanContext?.spanId).toBe(authSpan?.spanContext().spanId);
+    expect(clientSpan?.parentSpanContext?.spanId).toBe(authSpan?.spanContext().spanId);
+    expect(osSpan?.parentSpanContext?.spanId).toBe(clientSpan?.spanContext().spanId);
     expect(JSON.stringify(spans.map(span => span.attributes))).not.toContain("52998224725");
   } finally {
     global.fetch = originalFetch;

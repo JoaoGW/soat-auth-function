@@ -1,5 +1,5 @@
 import "./infrastructure/observability/Instrumentation";
-import { app, HttpRequest, HttpResponseInit } from "@azure/functions";
+import { app, HttpHandler, HttpRequest, HttpResponseInit } from "@azure/functions";
 import { randomUUID } from "node:crypto";
 import { context as otelContext, propagation } from "@opentelemetry/api";
 
@@ -28,31 +28,33 @@ function withIncomingTrace<T>(request: HttpRequest, action: () => Promise<T>): P
   return otelContext.with(propagation.extract(otelContext.active(), carrier), action);
 }
 
+export const authenticateHandler: HttpHandler = async (request, context) => {
+  const correlationId =
+    request.headers.get("x-correlation-id") || randomUUID();
+  const response = await withIncomingTrace(request, () => observability.execute(
+    "/auth/cpf",
+    correlationId,
+    () =>
+      Promise.resolve(
+        criarAutenticarClienteHttpHandler(useCase)(request, context),
+      ),
+    "POST",
+  ));
+  const status = response.status ?? 200;
+  observability.recordAttempt(
+    status === 200 ? "sucesso" : status === 401 ? "negada" : "erro",
+  );
+  return {
+    ...response,
+    headers: { ...response.headers, "X-Correlation-ID": correlationId },
+  };
+};
+
 app.http("autenticar-cliente-por-cpf", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "auth/cpf",
-  handler: async (request, context) => {
-    const correlationId =
-      request.headers.get("x-correlation-id") || randomUUID();
-    const response = await withIncomingTrace(request, () => observability.execute(
-      "/auth/cpf",
-      correlationId,
-      () =>
-        Promise.resolve(
-          criarAutenticarClienteHttpHandler(useCase)(request, context),
-        ),
-      "POST",
-    ));
-    const status = response.status ?? 200;
-    observability.recordAttempt(
-      status === 200 ? "sucesso" : status === 401 ? "negada" : "erro",
-    );
-    return {
-      ...response,
-      headers: { ...response.headers, "X-Correlation-ID": correlationId },
-    };
-  },
+  handler: authenticateHandler,
 });
 
 export const healthHandler = async (

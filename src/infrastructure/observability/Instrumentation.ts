@@ -51,6 +51,9 @@ if (enabled) {
     metricReader,
     instrumentations: [
       getNodeAutoInstrumentations({
+        // A chamada ao OS cria span cliente e injeta W3C explicitamente.
+        // A instrumentação do undici acrescentaria os mesmos cabeçalhos novamente.
+        "@opentelemetry/instrumentation-undici": { enabled: false },
         "@opentelemetry/instrumentation-pg": {
           enhancedDatabaseReporting: false,
           requestHook: (span) =>

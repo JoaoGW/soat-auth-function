@@ -23,6 +23,10 @@ O teste de trace chama o handler real da Function, exporta spans em memória e
 usa uma fronteira HTTP local simulada para o OS. Ele verifica a propagação W3C,
 o bearer de integração e a relação entre spans; não exercita o OS real, TLS,
 Azure Functions em nuvem ou exportação para New Relic.
+Na consulta ao OS, a Function cria um span cliente e injeta o contexto W3C
+uma única vez; a instrumentação automática do `undici` fica desativada para
+evitar cabeçalhos duplicados. O repositório OS contém um teste adicional com o
+controller real, HTTPS local e instrumentação de produção nos dois processos.
 
 ## Variáveis e arquitetura
 
