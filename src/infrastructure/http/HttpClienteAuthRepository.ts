@@ -1,14 +1,20 @@
 import { ClienteAuthRepository, ClienteAutenticavel } from "../../application/ports/ClienteAuthRepository";
 import { observability } from "../observability/Instrumentation";
+import { context, propagation } from "@opentelemetry/api";
 
 export class HttpClienteAuthRepository implements ClienteAuthRepository {
   constructor(private readonly baseUrl: string, private readonly token: string, private readonly fetcher: typeof fetch = fetch) {}
 
   async buscarPorCpf(cpf: string): Promise<ClienteAutenticavel | null> {
     try {
+      const headers: Record<string, string> = { authorization: `Bearer ${this.token}`, "content-type": "application/json" };
+      const traceCarrier: Record<string, string> = {};
+      propagation.inject(context.active(), traceCarrier);
+      if (traceCarrier.traceparent) headers.traceparent = traceCarrier.traceparent;
+      if (traceCarrier.tracestate) headers.tracestate = traceCarrier.tracestate;
       const response = await this.fetcher(`${this.baseUrl.replace(/\/$/, "")}/internal/clientes/validar-cpf`, {
         method: "POST", redirect: "error", signal: AbortSignal.timeout(5000),
-        headers: { authorization: `Bearer ${this.token}`, "content-type": "application/json" },
+        headers,
         body: JSON.stringify({ cpf }),
       });
       if (!response.ok) throw new Error("Falha na consulta interna de cliente");

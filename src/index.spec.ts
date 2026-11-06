@@ -1,4 +1,5 @@
 import type { HttpRequest } from "@azure/functions";
+import { propagation } from "@opentelemetry/api";
 
 describe("auth function scaffold", () => {
   it("identifica a aplicação da Function", async () => {
@@ -33,5 +34,12 @@ describe("auth function scaffold", () => {
         "X-Correlation-ID": "correlacao-teste",
       },
     });
+  });
+  it("extrai cabeçalhos W3C da requisição de entrada", async () => {
+    const extract = jest.spyOn(propagation, "extract");
+    const { healthHandler } = await import("./index");
+    await healthHandler({ headers: new Headers({ traceparent: "00-0123456789abcdef0123456789abcdef-0123456789abcdef-01", tracestate: "vendor=state" }) } as unknown as HttpRequest);
+    expect(extract).toHaveBeenCalledWith(expect.anything(), { traceparent: "00-0123456789abcdef0123456789abcdef-0123456789abcdef-01", tracestate: "vendor=state" });
+    extract.mockRestore();
   });
 });
