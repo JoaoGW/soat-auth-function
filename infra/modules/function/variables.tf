@@ -5,5 +5,5 @@ variable "name_suffix" { type = string }
 variable "key_vault_id" { type = string }
 variable "key_vault_uri" { type = string }
 variable "function_subnet_id" { type = string }
-variable "database_url_secret_uri" { type = string }
+variable "os_internal_base_url" { type = string }
 variable "application_version" { type = string }

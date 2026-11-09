@@ -1,8 +1,8 @@
 import { carregarAuthConfig } from "./AuthConfig";
 
 const environment = {
-  DATABASE_URL:
-    "postgresql://user:password@server.postgres.database.azure.com:5432/oficina?sslmode=require",
+  OS_INTERNAL_BASE_URL: "https://kong.example.test",
+  INTERNAL_CLIENT_LOOKUP_TOKEN: "token-exclusivo-com-mais-de-trinta-bytes",
   JWT_CLIENT_SECRET: "segredo-com-mais-de-trinta-e-dois-bytes",
 };
 
@@ -19,14 +19,19 @@ describe("carregarAuthConfig", () => {
     expect(() =>
       carregarAuthConfig({
         ...environment,
-        DATABASE_URL: "postgresql://localhost/oficina",
+        OS_INTERNAL_BASE_URL: "http://localhost",
       }),
-    ).toThrow("DATABASE_URL deve exigir TLS");
+    ).toThrow("OS_INTERNAL_BASE_URL deve ser HTTPS");
   });
 
   it("rejeita segredo JWT curto", () => {
     expect(() =>
       carregarAuthConfig({ ...environment, JWT_CLIENT_SECRET: "curto" }),
     ).toThrow("JWT_CLIENT_SECRET deve possuir ao menos 32 bytes");
+  });
+
+  it("exige token de integração forte e distinto do segredo JWT", () => {
+    expect(() => carregarAuthConfig({ ...environment, INTERNAL_CLIENT_LOOKUP_TOKEN: "curto" })).toThrow("ao menos 32 bytes");
+    expect(() => carregarAuthConfig({ ...environment, INTERNAL_CLIENT_LOOKUP_TOKEN: environment.JWT_CLIENT_SECRET })).toThrow("deve ser exclusivo");
   });
 });

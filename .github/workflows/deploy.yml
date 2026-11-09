@@ -41,6 +41,7 @@ jobs:
           TF_VAR_state_storage_account_name: ${{ vars.TF_STATE_STORAGE_ACCOUNT }}
           TF_VAR_aks_state_container_name: ${{ vars.TF_STATE_AKS_CONTAINER }}
           TF_VAR_application_version: ${{ github.sha }}
+          TF_VAR_os_internal_base_url: ${{ vars.OS_INTERNAL_BASE_URL }}
         run: |
           terraform -chdir=infra/environments/hml init -input=false -backend-config="resource_group_name=${{ vars.TF_STATE_RESOURCE_GROUP }}" -backend-config="storage_account_name=${{ vars.TF_STATE_STORAGE_ACCOUNT }}" -backend-config="container_name=${{ vars.TF_STATE_AUTH_CONTAINER }}" -backend-config="key=hml.tfstate" -backend-config="use_azuread_auth=true"
           terraform -chdir=infra/environments/hml apply -input=false -auto-approve
@@ -83,6 +84,7 @@ jobs:
           TF_VAR_state_storage_account_name: ${{ vars.TF_STATE_STORAGE_ACCOUNT }}
           TF_VAR_aks_state_container_name: ${{ vars.TF_STATE_AKS_CONTAINER }}
           TF_VAR_application_version: ${{ github.sha }}
+          TF_VAR_os_internal_base_url: ${{ vars.OS_INTERNAL_BASE_URL }}
         run: |
           terraform -chdir=infra/environments/prod init -input=false -backend-config="resource_group_name=${{ vars.TF_STATE_RESOURCE_GROUP }}" -backend-config="storage_account_name=${{ vars.TF_STATE_STORAGE_ACCOUNT }}" -backend-config="container_name=${{ vars.TF_STATE_AUTH_CONTAINER }}" -backend-config="key=prod.tfstate" -backend-config="use_azuread_auth=true"
           terraform -chdir=infra/environments/prod apply -input=false -auto-approve
