@@ -1,0 +1,210 @@
+import { metrics, SpanKind, SpanStatusCode, trace } from "@opentelemetry/api";
+import { logs, SeverityNumber } from "@opentelemetry/api-logs";
+import { getNodeAutoInstrumentations } from "@opentelemetry/auto-instrumentations-node";
+import { OTLPLogExporter } from "@opentelemetry/exporter-logs-otlp-proto";
+import { OTLPMetricExporter } from "@opentelemetry/exporter-metrics-otlp-proto";
+import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-proto";
+import { resourceFromAttributes } from "@opentelemetry/resources";
+import {
+  LoggerProvider,
+  SimpleLogRecordProcessor,
+} from "@opentelemetry/sdk-logs";
+import { PeriodicExportingMetricReader } from "@opentelemetry/sdk-metrics";
+import { NodeSDK } from "@opentelemetry/sdk-node";
+import { SimpleSpanProcessor } from "@opentelemetry/sdk-trace-base";
+
+const enabled = process.env.OBSERVABILITY_ENABLED === "true";
+const service = process.env.OTEL_SERVICE_NAME ?? "soat-auth-function";
+const version = process.env.OTEL_SERVICE_VERSION ?? "local";
+const environment = process.env.NODE_ENV ?? "development";
+let flushTelemetry = async (): Promise<void> => undefined;
+
+if (enabled) {
+  const licenseKey = process.env.NEW_RELIC_LICENSE_KEY;
+  if (!licenseKey)
+    throw new Error(
+      "NEW_RELIC_LICENSE_KEY é obrigatória quando OBSERVABILITY_ENABLED=true",
+    );
+  const endpoint =
+    process.env.OTEL_EXPORTER_OTLP_ENDPOINT ?? "https://otlp.nr-data.net:4318";
+  const headers = { "api-key": licenseKey };
+  const resource = resourceFromAttributes({
+    "service.name": service,
+    "service.version": version,
+    "deployment.environment.name": environment,
+  });
+  const traceExporter = new OTLPTraceExporter({
+    url: `${endpoint}/v1/traces`,
+    headers,
+  });
+  const spanProcessor = new SimpleSpanProcessor(traceExporter);
+  const metricReader = new PeriodicExportingMetricReader({
+    exporter: new OTLPMetricExporter({
+      url: `${endpoint}/v1/metrics`,
+      headers,
+    }),
+    exportIntervalMillis: 30_000,
+  });
+  new NodeSDK({
+    resource,
+    spanProcessors: [spanProcessor],
+    metricReader,
+    instrumentations: [
+      getNodeAutoInstrumentations({
+        // A chamada ao OS cria span cliente e injeta W3C explicitamente.
+        // A instrumentação do undici acrescentaria os mesmos cabeçalhos novamente.
+        "@opentelemetry/instrumentation-undici": { enabled: false },
+        "@opentelemetry/instrumentation-pg": {
+          enhancedDatabaseReporting: false,
+          requestHook: (span) =>
+            span.setAttribute("db.query.text", "[redacted]"),
+        },
+        "@opentelemetry/instrumentation-http": {
+          requestHook: (span) => {
+            span.setAttribute("url.full", "[redacted]");
+            span.setAttribute("url.query", "[redacted]");
+            span.setAttribute("http.target", "[redacted]");
+          },
+        },
+      }),
+    ],
+  }).start();
+  const loggerProvider = new LoggerProvider({
+    resource,
+    processors: [
+      new SimpleLogRecordProcessor({
+        exporter: new OTLPLogExporter({ url: `${endpoint}/v1/logs`, headers }),
+      }),
+    ],
+  });
+  logs.setGlobalLoggerProvider(loggerProvider);
+  flushTelemetry = async (): Promise<void> => {
+    await Promise.all([
+      spanProcessor.forceFlush(),
+      metricReader.forceFlush(),
+      loggerProvider.forceFlush(),
+    ]);
+  };
+}
+
+const meter = metrics.getMeter("soat-auth-function");
+const requests = meter.createCounter("soat.http.requisicoes");
+const errors = meter.createCounter("soat.http.erros");
+const duration = meter.createHistogram("soat.http.duracao", { unit: "ms" });
+const attempts = meter.createCounter("soat.auth.tentativas");
+const integrationErrors = meter.createCounter("soat.integracoes.erros");
+const logger = logs.getLogger("soat-auth-function");
+
+export const observability = {
+  async execute<T>(
+    route: string,
+    correlationId: string,
+    operation: () => Promise<T>,
+    method = "GET",
+  ): Promise<T> {
+    return trace
+      .getTracer("soat-auth-function")
+      .startActiveSpan(
+        route,
+        {
+          kind: SpanKind.SERVER,
+          attributes: {
+            "http.request.method": method,
+            "url.path": route,
+          },
+        },
+        async (span) => {
+          const start = performance.now();
+          span.setAttribute("soat.correlation_id", correlationId);
+          try {
+            const result = await operation();
+            const status =
+              typeof result === "object" && result !== null && "status" in result
+                ? Number(result.status)
+                : 200;
+            this.recordRequest(
+              route,
+              status,
+              Math.round(performance.now() - start),
+              correlationId,
+            );
+            span.setAttribute("http.response.status_code", status);
+            span.setStatus({
+              code: status >= 500 ? SpanStatusCode.ERROR : SpanStatusCode.OK,
+            });
+            return result;
+          } catch (error) {
+            this.recordRequest(
+              route,
+              500,
+              Math.round(performance.now() - start),
+              correlationId,
+            );
+            span.setStatus({ code: SpanStatusCode.ERROR });
+            throw error;
+          } finally {
+            span.end();
+            // Functions podem suspender logo após responder. Aguarda os
+            // exportadores, mas nunca transforma uma falha de telemetria em
+            // indisponibilidade da autenticação.
+            await flushTelemetry().catch(() => undefined);
+          }
+        },
+      );
+  },
+  recordAttempt(outcome: "sucesso" | "negada" | "erro"): void {
+    attempts.add(1, { resultado: outcome });
+  },
+  recordIntegrationError(integracao: string): void {
+    integrationErrors.add(1, { integracao });
+    this.log("error", "falha de integração", { integracao });
+  },
+  recordRequest(
+    route: string,
+    status: number,
+    elapsed: number,
+    correlationId: string,
+  ): void {
+    const attributes = { route, "http.response.status_code": status };
+    requests.add(1, attributes);
+    duration.record(elapsed, attributes);
+    if (status >= 500) errors.add(1, attributes);
+    this.log(status >= 500 ? "error" : "info", "requisição concluída", {
+      ...attributes,
+      duration: elapsed,
+      correlationId,
+    });
+  },
+  log(
+    level: "info" | "error",
+    message: string,
+    attributes: Record<string, string | number | boolean> = {},
+  ): void {
+    const span = trace.getActiveSpan()?.spanContext();
+    const payload = {
+      environment,
+      service,
+      version,
+      ...attributes,
+      traceId: span?.traceId,
+      spanId: span?.spanId,
+    };
+    logger.emit({
+      severityNumber:
+        level === "error" ? SeverityNumber.ERROR : SeverityNumber.INFO,
+      severityText: level.toUpperCase(),
+      body: message,
+      attributes: payload,
+    });
+    console[level](
+      JSON.stringify({
+        timestamp: new Date().toISOString(),
+        level,
+        message,
+        ...payload,
+      }),
+    );
+  },
+};
+
+export const observabilityResource = { service, version };

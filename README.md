@@ -1,21 +1,57 @@
 # soat-auth-function
 
-Scaffold TypeScript da Azure Function que emitirá JWT de cliente após
-autenticação por CPF na Fase 4. Nenhuma rota HTTP, consulta a banco ou regra de
-autenticação foi implementada nesta fase.
+Azure Function TypeScript que emite JWT de cliente após autenticação por CPF.
+Ela valida os dois dígitos verificadores antes da consulta HTTPS ao OS, procura um
+cliente ativo e não informa se a falha decorre de CPF inválido, inexistente ou
+inativo.
 
 ## Stack e validação
 
-- Azure Functions v4, Node.js 20 e TypeScript;
-- Jest e ESLint;
+- Azure Functions v4, Node.js 20, TypeScript e integração HTTPS com o OS;
+- JWT HS256 com `sub`, `cpf`, `role=cliente`, issuer, audience e expiração de
+  15 minutos;
+- Jest, ESLint e Terraform 1.9.8;
 - `npm ci`, `npm run lint`, `npm run build` e `npm run test`.
 
-O `host.json` prepara o runtime Azure Functions. As futuras variáveis de banco,
-JWT e observabilidade serão documentadas quando a implementação funcional
-existir. O repositório não possui Dockerfile porque a execução será serverless.
+Os endpoints são `POST /auth/cpf` e `GET /health`. O primeiro recebe
+`{ "cpf": "529.982.247-25" }`; o segundo responde somente estado, serviço e
+versão. O `host.json` remove o prefixo padrão `/api` para que o Kong encaminhe
+a mesma rota. O repositório não possui Dockerfile porque a execução é
+serverless.
+
+O teste de trace chama o handler real da Function, exporta spans em memória e
+usa uma fronteira HTTP local simulada para o OS. Ele verifica a propagação W3C,
+o bearer de integração e a relação entre spans; não exercita o OS real, TLS,
+Azure Functions em nuvem ou exportação para New Relic.
+Na consulta ao OS, a Function cria um span cliente e injeta o contexto W3C
+uma única vez; a instrumentação automática do `undici` fica desativada para
+evitar cabeçalhos duplicados. O repositório OS contém um teste adicional com o
+controller real, HTTPS local e instrumentação de produção nos dois processos.
+
+## Variáveis e arquitetura
+
+As variáveis `INTERNAL_CLIENT_LOOKUP_TOKEN`, `JWT_CLIENT_SECRET` e `NEW_RELIC_LICENSE_KEY` são
+referências ao Key Vault. `OS_INTERNAL_BASE_URL` aponta ao HTTPS do Kong, e o token
+de integração exclusivo (ao menos 32 bytes) deve ser provisionado com o mesmo valor
+na Function e no OS antes do deploy. `JWT_CLIENT_ISSUER`, `JWT_CLIENT_AUDIENCE` e
+`JWT_CLIENT_EXPIRES_IN` possuem valores seguros padrão. Nenhum segredo é
+versionado. O ambiente HML foi implantado anteriormente em Flex Consumption e
+integrado ao Kong na rota `/auth/cpf`. Sua disponibilidade e configuração
+atuais precisam ser verificadas antes do aceite.
+Consulte o
+[diagrama central](https://github.com/JoaoGW/soat-api/blob/main/docs/architecture/README.md#mapa-de-responsabilidades-dos-repositórios).
+O Swagger e a coleção Postman pertencem à API central:
+[Swagger HML](http://20.226.244.207/docs) e
+[coleção Postman](https://github.com/JoaoGW/soat-api/blob/main/docs/postman/oficina-api.postman_collection.json).
 
 ## CI
 
-O pipeline executa instalação, lint, build e testes em push e pull request para
-`main` e `development`.
+O [workflow CI](https://github.com/JoaoGW/soat-auth-function/actions/workflows/ci.yml)
+executa instalação, lint, build, testes e validação Terraform. O deploy promove
+`development` para hml e `main` para prod somente após OIDC, infraestrutura
+foundation aplicada e `TF_APPLY_ENABLED=true` no Environment correspondente.
+A trava HML foi restaurada para `false` após o deploy validado; produção segue
+sem exposição pública.
 
+As decisões de rede, Key Vault e exceções documentadas estão em
+[docs/seguranca.md](docs/seguranca.md).

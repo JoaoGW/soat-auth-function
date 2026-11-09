@@ -1,0 +1,5 @@
+resource_group_name  = "rg-soat-platform"
+storage_account_name = "soatsttfstate260909"
+container_name       = "tfstate-auth-function"
+key                  = "hml.tfstate"
+use_azuread_auth     = true
