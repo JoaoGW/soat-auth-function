@@ -31,7 +31,8 @@ controller real, HTTPS local e instrumentação de produção nos dois processos
 ## Variáveis e arquitetura
 
 As variáveis `INTERNAL_CLIENT_LOOKUP_TOKEN`, `JWT_CLIENT_SECRET` e `NEW_RELIC_LICENSE_KEY` são
-referências ao Key Vault. `OS_INTERNAL_BASE_URL` aponta ao HTTPS do Kong, e o token
+referências ao Key Vault. `OS_INTERNAL_BASE_URL` aponta ao HTTPS do Kong com o prefixo `/fase4` (a Function
+chama `POST /fase4/internal/clientes/validar-cpf` do OS Service), e o token
 de integração exclusivo (ao menos 32 bytes) deve ser provisionado com o mesmo valor
 na Function e no OS antes do deploy. `JWT_CLIENT_ISSUER`, `JWT_CLIENT_AUDIENCE` e
 `JWT_CLIENT_EXPIRES_IN` possuem valores seguros padrão. Nenhum segredo é
